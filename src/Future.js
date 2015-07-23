@@ -138,14 +138,10 @@ Future.T = function(M) {
     }
   };
 
-  FutureT.lift = function(m) {
-    return FutureT(ofFn(m));
-  };
+  FutureT.lift = R.compose(FutureT, ofFn);
 
   FutureT.prototype.of =
-  FutureT.of = function(val) {
-    return FutureT.lift(M.of(val));
-  };
+  FutureT.of = R.compose(FutureT.lift, M.of);
 
   FutureT.prototype.chain = function(f) {
     return new FutureT(chainFn(f, this));
@@ -157,6 +153,33 @@ Future.T = function(M) {
         resolve(m.map(f));
       });
     });
+  };
+
+  FutureT.prototype.ap = function(m) {
+    var self = this;
+
+    return new FutureT(function(rej, res) {
+      var applyM, valM;
+      var doReject = R.once(rej);
+
+      function resolveIfDone() {
+        if (applyM != null && valM != null) {
+          return res(applyM.ap(valM));
+        }
+      }
+
+      self.fork(doReject, function(m) {
+        applyM = m;
+        resolveIfDone();
+      });
+
+      m.fork(doReject, function(m) {
+        valM = m;
+        resolveIfDone();
+      });
+
+    });
+
   };
 
   return FutureT;
