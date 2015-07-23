@@ -106,3 +106,53 @@ Future.prototype.toString = function() {
 };
 
 module.exports = Future;
+
+
+Future.T = function(M) {
+
+  function FutureT(fork) {
+    if (!(this instanceof FutureT)) {
+      return new FutureT(fork);
+    }
+    this._fork = fork;
+  }
+
+  FutureT.prototype.fork = function(reject, resolve) {
+    try {
+      this._fork(reject, resolve);
+    } catch(e) {
+      reject(e);
+    }
+  };
+
+  FutureT.lift = function(m) {
+    return FutureT(function(reject, resolve) {
+      return resolve(m);
+    });
+  };
+
+  FutureT.of = function(val) {
+    return FutureT.lift(M.of(val));
+  };
+  FutureT.prototype.of = FutureT.of;
+
+  FutureT.prototype.chain = function(f) {
+    var outer = this;
+    return new FutureT(function(reject, resolve) {
+      return outer.fork(
+        function(e) { reject(e); },
+        function(v) { f(v).fork(reject, resolve); }
+      );
+    });
+  };
+
+  FutureT.prototype.map = function(f) {
+    return this.chain(function(m) {
+      return new FutureT(function(reject, resolve) {
+        resolve(m.map(f));
+      });
+    });
+  };
+
+  return FutureT;
+};
