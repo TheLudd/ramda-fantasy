@@ -18,8 +18,10 @@ Future.prototype.fork = function(reject, resolve) {
 
 // functor
 Future.prototype.map = function(f) {
-  return this.chain(function(a) { return Future.of(f(a)); });
-};
+  return this.chain(function(a) {
+    return Future.of(f(a));
+  });
+}
 
 // apply
 Future.prototype.ap = function(m) {
@@ -52,10 +54,24 @@ Future.prototype.ap = function(m) {
 // applicative
 Future.of = function(x) {
   // should include a default rejection?
-  return new Future(function(_, resolve) { return resolve(x); });
+  return new Future(ofFn(x));
 };
 
+function ofFn(x) {
+  return function(_, resolve) {
+    return resolve(x);
+  };
+}
+
 Future.prototype.of = Future.of;
+
+
+function chainFn(f, future) {
+  return function(reject, resolve) {
+    return future.fork(function(a) { return reject(a); },
+                       function(b) { return f(b).fork(reject, resolve); });
+  };
+}
 
 // chain
 //  f must be a function which returns a value
@@ -63,10 +79,7 @@ Future.prototype.of = Future.of;
 //  chain must return a value of the same Chain
 //:: Future a, b => (b -> Future c) -> Future c
 Future.prototype.chain = function(f) {  // Sorella's:
-  return new Future(function(reject, resolve) {
-    return this.fork(function(a) { return reject(a); },
-                     function(b) { return f(b).fork(reject, resolve); });
-  }.bind(this));
+  return new Future(chainFn(f, this));
 };
 
 // chainReject
@@ -126,24 +139,16 @@ Future.T = function(M) {
   };
 
   FutureT.lift = function(m) {
-    return FutureT(function(reject, resolve) {
-      return resolve(m);
-    });
+    return FutureT(ofFn(m));
   };
 
+  FutureT.prototype.of =
   FutureT.of = function(val) {
     return FutureT.lift(M.of(val));
   };
-  FutureT.prototype.of = FutureT.of;
 
   FutureT.prototype.chain = function(f) {
-    var outer = this;
-    return new FutureT(function(reject, resolve) {
-      return outer.fork(
-        function(e) { reject(e); },
-        function(v) { f(v).fork(reject, resolve); }
-      );
-    });
+    return new FutureT(chainFn(f, this));
   };
 
   FutureT.prototype.map = function(f) {
