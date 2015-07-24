@@ -2,6 +2,7 @@ var R = require('ramda');
 var assert = require('assert');
 var types = require('./types');
 var Future = require('../src/Future');
+var Maybe = require('../src/Maybe');
 
 Future.prototype.equals = function(b) {
   this.fork(function(e1) {
@@ -236,6 +237,64 @@ describe('Future', function() {
       assert.equal('Some error message', result);
     });
 
+  });
+
+});
+
+describe('Future.T', function() {
+
+  var FutureTMaybe = Future.T(Maybe);
+  var fm = FutureTMaybe.of(1);
+  var result;
+  var extractResult = function(m) {
+    result = m.getOrElse('fail');
+  };
+
+  describe('#of', function() {
+
+    it('returns a transformed Future', function() {
+      fm.fork(null, extractResult);
+      assert.equal(1, result);
+    });
+  });
+
+  describe('#map', function() {
+
+    it('maps a function over the contained value', function() {
+      fm.map(R.add(1)).fork(null, extractResult);
+      assert.equal(2, result);
+    });
+
+  });
+
+  describe('#ap', function() {
+
+    it('applies the contained function to the value the supplied monad', function() {
+      FutureTMaybe.of(R.add(10)).ap(fm).fork(null, extractResult);
+      assert.equal(11, result);
+    });
+
+  });
+
+  describe('#chain', function() {
+
+    it('applies the function returning a trnsformed Future to its value', function() {
+      var f = function(val) {
+        return FutureTMaybe.of(val + 15);
+      };
+      fm.chain(f).fork(null, extractResult);
+      assert.equal(16, result);
+    });
+
+  });
+
+  describe('#lift', function() {
+
+    it('creates a transformed Future containing the inner type', function() {
+      var fm = FutureTMaybe.lift(Maybe.of('foo'));
+      fm.fork(null, extractResult);
+      assert.equal('foo', result);
+    });
   });
 
 });

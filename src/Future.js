@@ -21,7 +21,7 @@ Future.prototype.map = function(f) {
   return this.chain(function(a) {
     return Future.of(f(a));
   });
-}
+};
 
 // apply
 Future.prototype.ap = function(m) {
@@ -144,13 +144,20 @@ Future.T = function(M) {
   FutureT.of = R.compose(FutureT.lift, M.of);
 
   FutureT.prototype.chain = function(f) {
-    return new FutureT(chainFn(f, this));
+    var futureT = this;
+    return new FutureT(function(reject, resolve) {
+      futureT.fork(function(e) {
+        reject(e);
+      }, function(m) {
+        m.chain(f).fork(reject, resolve);
+      });
+    });
   };
 
   FutureT.prototype.map = function(f) {
-    return this.chain(function(m) {
-      return new FutureT(function(reject, resolve) {
-        resolve(m.map(f));
+    return this.chain(function(val) {
+      return new FutureT(function(_, resolve) {
+        resolve(M.of(f(val)));
       });
     });
   };
