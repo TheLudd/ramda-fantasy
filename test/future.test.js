@@ -247,8 +247,12 @@ describe('Future.T', function() {
   var fm = FutureTMaybe.of(1);
   var result;
   var extractResult = function(m) {
-    result = m.getOrElse('fail');
+    result = m.getOrElse('was nothing');
   };
+
+  beforeEach(function() {
+    result = undefined;
+  });
 
   describe('#of', function() {
 
@@ -261,7 +265,7 @@ describe('Future.T', function() {
   describe('#map', function() {
 
     it('maps a function over the contained value', function() {
-      fm.map(R.add(1)).fork(null, extractResult);
+      fm.map(R.add(1)).fork(assert.fail, extractResult);
       assert.equal(2, result);
     });
 
@@ -270,7 +274,7 @@ describe('Future.T', function() {
   describe('#ap', function() {
 
     it('applies the contained function to the value the supplied monad', function() {
-      FutureTMaybe.of(R.add(10)).ap(fm).fork(null, extractResult);
+      FutureTMaybe.of(R.add(10)).ap(fm).fork(assert.fail, extractResult);
       assert.equal(11, result);
     });
 
@@ -278,14 +282,19 @@ describe('Future.T', function() {
 
   describe('#chain', function() {
 
-    it('applies the function returning a trnsformed Future to its value', function() {
-      var f = function(val) {
-        return FutureTMaybe.of(val + 15);
-      };
-      fm.chain(f).fork(null, extractResult);
+    var f = function(val) {
+      return FutureTMaybe.of(val + 15);
+    };
+
+    it('applies the function returning a transformed Future to its value', function() {
+      fm.chain(f).fork(assert.fail, extractResult);
       assert.equal(16, result);
     });
 
+    it('works with a nothing', function() {
+      FutureTMaybe.lift(Maybe(null)).chain(f).fork(assert.fail, extractResult);
+      assert.equal('was nothing', result);
+    });
   });
 
   describe('#lift', function() {
