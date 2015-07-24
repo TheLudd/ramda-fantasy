@@ -146,9 +146,7 @@ Future.T = function(M) {
   FutureT.prototype.chain = function(f) {
     var futureT = this;
     return new FutureT(function(reject, resolve) {
-      futureT.fork(function(e) {
-        reject(e);
-      }, function(m) {
+      futureT.fork(reject, function(m) {
         m.chain(f).fork(reject, resolve);
       });
     });
