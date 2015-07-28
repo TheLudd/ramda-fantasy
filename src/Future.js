@@ -8,13 +8,15 @@ function Future(f) {
   this._fork = f;
 }
 
-Future.prototype.fork = function(reject, resolve) {
+function fork(reject, resolve) {
   try {
     this._fork(reject, resolve);
   } catch(e) {
     reject(e);
   }
-};
+}
+
+Future.prototype.fork = fork;
 
 // functor
 Future.prototype.map = function(f) {
@@ -25,7 +27,7 @@ Future.prototype.map = function(f) {
 
 // apply
 Future.prototype.ap = function(m) {
-  var self = this;
+  var future = this;
 
   return new Future(function(rej, res) {
     var applyFn, val;
@@ -37,7 +39,7 @@ Future.prototype.ap = function(m) {
       }
     }
 
-    self.fork(doReject, function(fn) {
+    future.fork(doReject, function(fn) {
       applyFn = fn;
       resolveIfDone();
     });
@@ -98,9 +100,9 @@ Future.prototype.chainReject = function(f) {
 // see above.
 
 Future.prototype.bimap = function(errFn, successFn) {
-  var self = this;
+  var future = this;
   return new Future(function(reject, resolve) {
-    self.fork(function(err) {
+    future.fork(function(err) {
       reject(errFn(err));
     }, function(val) {
       resolve(successFn(val));
@@ -130,14 +132,9 @@ Future.T = function(M) {
     this._fork = fork;
   }
 
-  FutureT.prototype.fork = function(reject, resolve) {
-    try {
-      this._fork(reject, resolve);
-    } catch(e) {
-      reject(e);
-    }
-  };
+  FutureT.prototype.fork = fork;
 
+  FutureT.prototype.lift =
   FutureT.lift = R.compose(FutureT, ofFn);
 
   FutureT.prototype.of =
@@ -146,22 +143,23 @@ Future.T = function(M) {
   FutureT.prototype.chain = function(f) {
     var futureT = this;
     return new FutureT(function(reject, resolve) {
-      futureT.fork(reject, function(m) {
-        m.chain(f).fork(reject, resolve);
+      return futureT.fork(reject, function(v) {
+        var v2 = v.chain(f);
+        if(v2 instanceof M) {
+          resolve(v2);
+        } else {
+          v2.fork(reject, resolve);
+        }
       });
     });
   };
 
   FutureT.prototype.map = function(f) {
-    return this.chain(function(val) {
-      return new FutureT(function(_, resolve) {
-        resolve(M.of(f(val)));
-      });
-    });
+    return this.chain(R.compose(FutureT.of, f));
   };
 
   FutureT.prototype.ap = function(m) {
-    var self = this;
+    var futureT = this;
 
     return new FutureT(function(rej, res) {
       var applyM, valM;
@@ -173,7 +171,7 @@ Future.T = function(M) {
         }
       }
 
-      self.fork(doReject, function(m) {
+      futureT.fork(doReject, function(m) {
         applyM = m;
         resolveIfDone();
       });
@@ -185,6 +183,10 @@ Future.T = function(M) {
 
     });
 
+  };
+
+  FutureT.prototype.toString = function() {
+    return 'FutureT(' + R.toString(this._fork) + ')';
   };
 
   return FutureT;
