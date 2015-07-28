@@ -56,10 +56,10 @@ Future.prototype.ap = function(m) {
 // applicative
 Future.of = function(x) {
   // should include a default rejection?
-  return new Future(ofFn(x));
+  return new Future(of(x));
 };
 
-function ofFn(x) {
+function of(x) {
   return function(_, resolve) {
     return resolve(x);
   };
@@ -67,21 +67,17 @@ function ofFn(x) {
 
 Future.prototype.of = Future.of;
 
-
-function chainFn(f, future) {
-  return function(reject, resolve) {
-    return future.fork(function(a) { return reject(a); },
-                       function(b) { return f(b).fork(reject, resolve); });
-  };
-}
-
 // chain
 //  f must be a function which returns a value
 //  f must return a value of the same Chain
 //  chain must return a value of the same Chain
 //:: Future a, b => (b -> Future c) -> Future c
 Future.prototype.chain = function(f) {  // Sorella's:
-  return new Future(chainFn(f, this));
+  var future = this;
+  return new Future(function(reject, resolve) {
+    return future.fork(function(a) { return reject(a); },
+                       function(b) { return f(b).fork(reject, resolve); });
+  });
 };
 
 // chainReject
@@ -135,7 +131,7 @@ Future.T = function(M) {
   FutureT.prototype.fork = fork;
 
   FutureT.prototype.lift =
-  FutureT.lift = R.compose(FutureT, ofFn);
+  FutureT.lift = R.compose(FutureT, of);
 
   FutureT.prototype.of =
   FutureT.of = R.compose(FutureT.lift, M.of);

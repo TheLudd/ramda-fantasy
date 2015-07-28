@@ -295,6 +295,7 @@ describe('Future.T', function() {
       FutureTMaybe.lift(Maybe(null)).chain(f).fork(assert.fail, extractResult);
       assert.equal('was nothing', result);
     });
+
   });
 
   describe('#lift', function() {
